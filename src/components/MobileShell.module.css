@@ -35,6 +35,21 @@
   letter-spacing: -0.02em;
 }
 
+.titlePlaceholder {
+  display: block;
+  flex: 1;
+  min-height: 1.25rem;
+}
+
+.viewportParent {
+  background: linear-gradient(180deg, #cbd5e1 0%, #eef2f7 24%, #eef2f7 100%);
+}
+
+.mainParent {
+  padding: 12px 14px 92px;
+  background: transparent;
+}
+
 .headerRight {
   flex-shrink: 0;
 }

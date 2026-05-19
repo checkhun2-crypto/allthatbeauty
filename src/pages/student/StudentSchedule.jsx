@@ -1,9 +1,12 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { StudentLayout } from '../../components/RoleLayout.jsx'
 import ui from '../../components/ui.module.css'
 import { useAuth } from '../../context/AuthContext.jsx'
 import { useData } from '../../context/DataContext.jsx'
+import { fmtDur } from '../../lib/formatDuration.js'
 import { formatIsoDate } from '../../lib/nav.js'
+import s from './StudentSchedule.module.css'
 
 const DAY_HEADERS = ['일', '월', '화', '수', '목', '금', '토']
 
@@ -37,14 +40,114 @@ function hasClassOnWeekday(timetable, weekdayKo) {
   return timetable.some((row) => row.day === weekdayKo && row.slots?.length > 0)
 }
 
+function getSlotsForWeekday(timetable, weekdayKo) {
+  if (!timetable?.length) return []
+  const row = timetable.find((r) => r.day === weekdayKo)
+  return row?.slots ?? []
+}
+
+function eventDotColor(type) {
+  if (type === '시험') return '#c62828'
+  if (type === '평가') return '#f9a825'
+  if (type === '특강') return '#7E57C2'
+  return 'var(--accent)'
+}
+
+function shiftMonth(y, m0, delta) {
+  const d = new Date(y, m0 + delta, 1)
+  return { y: d.getFullYear(), m0: d.getMonth() }
+}
+
+function DateDetailPanel({ iso, me, events, onClose, onPhotoClick }) {
+  const dateObj = parseIso(iso)
+  const weekdayKo = DAY_HEADERS[dateObj.getDay()]
+  const slots = getSlotsForWeekday(me.timetable, weekdayKo)
+  const dayEvents = events.filter((e) => e.date === iso)
+  const dailyPhotos = me.dailyResults.filter((d) => d.date === iso)
+  const practiceSec = me.practiceSecondsByDate?.[iso] ?? 0
+
+  return (
+    <div className={s.detailPanel}>
+      <div className={s.detailHead}>
+        <div>
+          <h3 className={s.detailTitle}>{formatIsoDate(iso)}</h3>
+          <p className={s.detailSub}>{weekdayKo}요일</p>
+        </div>
+        <button type="button" className={s.closeBtn} onClick={onClose}>
+          닫기
+        </button>
+      </div>
+
+      <div className={s.section}>
+        <h4 className={s.sectionTitle}>수업 일정</h4>
+        {slots.length === 0 && dayEvents.length === 0 ? (
+          <p className={s.emptyLine}>등록된 수업·일정이 없습니다.</p>
+        ) : (
+          <>
+            {slots.map((sl) => (
+              <div key={`${sl.time}-${sl.subject}`} className={s.slotRow}>
+                <strong>{sl.time}</strong> · {sl.subject}
+              </div>
+            ))}
+            {dayEvents.map((ev) => (
+              <div key={ev.id} className={s.slotRow}>
+                <strong>{ev.type}</strong> · {ev.title}
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      <div className={s.section}>
+        <h4 className={s.sectionTitle}>오늘의 결과물</h4>
+        {dailyPhotos.length === 0 ? (
+          <p className={s.emptyLine}>올린 사진이 없습니다.</p>
+        ) : (
+          <div className={s.photoGrid}>
+            {dailyPhotos.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                className={s.photoBtn}
+                onClick={() => onPhotoClick(d.src)}
+                aria-label="크게 보기"
+              >
+                <img src={d.src} alt="" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className={s.section}>
+        <h4 className={s.sectionTitle}>연습 타이머</h4>
+        {practiceSec > 0 ? (
+          <p className={s.emptyLine} style={{ color: 'var(--text)', fontWeight: 700 }}>
+            {fmtDur(practiceSec)}
+          </p>
+        ) : (
+          <p className={s.emptyLine}>연습 기록이 없습니다.</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function StudentSchedule() {
   const { studentId } = useAuth()
   const { students, events } = useData()
-  const me = students.find((s) => s.id === studentId)
+  const me = students.find((st) => st.id === studentId)
 
   const today = startOfToday()
-  const y = today.getFullYear()
-  const m0 = today.getMonth()
+  const todayY = today.getFullYear()
+  const todayM0 = today.getMonth()
+  const todayIso = toIso(todayY, todayM0, today.getDate())
+
+  const [view, setView] = useState(() => ({ y: todayY, m0: todayM0 }))
+  const [selectedIso, setSelectedIso] = useState(null)
+  const [lightboxSrc, setLightboxSrc] = useState(null)
+
+  const { y, m0 } = view
   const monthLabel = `${y}년 ${m0 + 1}월`
 
   const calendarCells = useMemo(() => {
@@ -59,24 +162,13 @@ export default function StudentSchedule() {
       const weekdayKo = DAY_HEADERS[dateObj.getDay()]
       const hasClass = me ? hasClassOnWeekday(me.timetable, weekdayKo) : false
       const dayEvents = events.filter((e) => e.date === iso)
-      const isPast = dateObj < today
       const isToday = diffDays(dateObj, today) === 0
-      cells.push({
-        type: 'day',
-        day: d,
-        iso,
-        weekdayKo,
-        hasClass,
-        dayEvents,
-        isPast,
-        isToday,
-      })
+      cells.push({ type: 'day', day: d, iso, hasClass, dayEvents, isToday })
     }
     return cells
   }, [y, m0, today, me, events])
 
   const sortedEvents = useMemo(() => [...events].sort((a, b) => a.date.localeCompare(b.date)), [events])
-
   const upcoming = useMemo(() => sortedEvents.filter((e) => parseIso(e.date) >= today), [sortedEvents, today])
   const past = useMemo(() => sortedEvents.filter((e) => parseIso(e.date) < today).reverse(), [sortedEvents, today])
 
@@ -91,6 +183,11 @@ export default function StudentSchedule() {
   }, [upcoming])
 
   const heroDday = heroEvent ? diffDays(today, parseIso(heroEvent.date)) : null
+
+  function goToday() {
+    setView({ y: todayY, m0: todayM0 })
+    setSelectedIso(todayIso)
+  }
 
   if (!me) {
     return (
@@ -108,7 +205,15 @@ export default function StudentSchedule() {
         </div>
         {heroEvent ? (
           <>
-            <div style={{ fontSize: '3rem', fontWeight: 900, color: 'var(--accent)', lineHeight: 1.1, letterSpacing: '-0.03em' }}>
+            <div
+              style={{
+                fontSize: '3rem',
+                fontWeight: 900,
+                color: 'var(--accent)',
+                lineHeight: 1.1,
+                letterSpacing: '-0.03em',
+              }}
+            >
               {heroDday === 0 ? 'D-Day' : heroDday > 0 ? `D-${heroDday}` : `D+${Math.abs(heroDday)}`}
             </div>
             <div style={{ fontWeight: 800, marginTop: 10, fontSize: '1.05rem' }}>{heroEvent.title}</div>
@@ -125,20 +230,35 @@ export default function StudentSchedule() {
 
       <section className={ui.card}>
         <div className={ui.badge} style={{ marginBottom: 12 }}>
-          이번 달 수업 캘린더
+          수업 캘린더
         </div>
-        <div style={{ fontWeight: 700, marginBottom: 10, textAlign: 'center' }}>{monthLabel}</div>
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(7, 1fr)',
-            gap: 4,
-            fontSize: '0.68rem',
-            textAlign: 'center',
-          }}
-        >
+
+        <div className={s.calNav}>
+          <button
+            type="button"
+            className={s.navBtn}
+            aria-label="이전 달"
+            onClick={() => setView((v) => shiftMonth(v.y, v.m0, -1))}
+          >
+            ‹
+          </button>
+          <span className={s.monthLabel}>{monthLabel}</span>
+          <button
+            type="button"
+            className={s.navBtn}
+            aria-label="다음 달"
+            onClick={() => setView((v) => shiftMonth(v.y, v.m0, 1))}
+          >
+            ›
+          </button>
+          <button type="button" className={s.todayBtn} onClick={goToday}>
+            오늘
+          </button>
+        </div>
+
+        <div className={s.calGrid}>
           {DAY_HEADERS.map((h) => (
-            <div key={h} className={ui.muted} style={{ fontWeight: 700, padding: '4px 0' }}>
+            <div key={h} className={s.dayHead}>
               {h}
             </div>
           ))}
@@ -146,56 +266,59 @@ export default function StudentSchedule() {
             cell.type === 'pad' ? (
               <div key={`pad-${idx}`} />
             ) : (
-              <div
+              <button
                 key={cell.iso}
-                style={{
-                  minHeight: 52,
-                  borderRadius: 10,
-                  padding: '6px 2px',
-                  border: cell.isToday ? '2px solid var(--accent)' : '1px solid var(--border)',
-                  background: cell.isPast ? 'color-mix(in srgb, var(--muted) 12%, transparent)' : 'var(--surface)',
-                  opacity: cell.isPast ? 0.55 : 1,
-                }}
+                type="button"
+                className={`${s.dayBtn} ${cell.isToday ? s.dayBtnToday : ''} ${selectedIso === cell.iso ? s.dayBtnSelected : ''}`}
+                onClick={() => setSelectedIso(cell.iso)}
               >
-                <div style={{ fontWeight: cell.isToday ? 800 : 600 }}>{cell.day}</div>
-                <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 3, justifyContent: 'center' }}>
-                  {cell.hasClass ? (
-                    <span title="정규 수업" style={{ width: 6, height: 6, borderRadius: 999, background: '#5C6BC0' }} />
-                  ) : null}
+                <div className={`${s.dayNum} ${cell.isToday ? s.dayNumToday : ''}`}>{cell.day}</div>
+                <div className={s.dots}>
+                  {cell.hasClass ? <span className={s.dotClass} title="정규 수업" /> : null}
                   {cell.dayEvents.map((ev) => (
                     <span
                       key={ev.id}
+                      className={s.dotEvent}
                       title={ev.title}
-                      style={{
-                        width: 6,
-                        height: 6,
-                        borderRadius: 999,
-                        background:
-                          ev.type === '시험'
-                            ? '#c62828'
-                            : ev.type === '평가'
-                              ? '#f9a825'
-                              : ev.type === '특강'
-                                ? '#7E57C2'
-                                : 'var(--accent)',
-                      }}
+                      style={{ background: eventDotColor(ev.type) }}
                     />
                   ))}
                 </div>
-              </div>
+              </button>
             ),
           )}
         </div>
-        <div className={ui.muted} style={{ marginTop: 10, fontSize: '0.72rem', display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+
+        <div className={s.legend}>
           <span>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: '#5C6BC0', verticalAlign: 'middle', marginRight: 4 }} />
+            <span className={s.dotClass} style={{ display: 'inline-block', marginRight: 4, verticalAlign: 'middle' }} />
             정규 수업일
           </span>
           <span>
-            <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 999, background: 'var(--accent)', verticalAlign: 'middle', marginRight: 4 }} />
+            <span
+              style={{
+                display: 'inline-block',
+                width: 8,
+                height: 8,
+                borderRadius: 999,
+                background: 'var(--accent)',
+                marginRight: 4,
+                verticalAlign: 'middle',
+              }}
+            />
             멘토 일정
           </span>
         </div>
+
+        {selectedIso ? (
+          <DateDetailPanel
+            iso={selectedIso}
+            me={me}
+            events={events}
+            onClose={() => setSelectedIso(null)}
+            onPhotoClick={setLightboxSrc}
+          />
+        ) : null}
       </section>
 
       <section className={ui.card}>
@@ -254,6 +377,23 @@ export default function StudentSchedule() {
           ))}
         </section>
       ) : null}
+
+      {lightboxSrc && typeof document !== 'undefined'
+        ? createPortal(
+            <div className={s.lightbox} role="dialog" aria-modal="true" onClick={() => setLightboxSrc(null)}>
+              <button type="button" className={s.lightboxClose} onClick={() => setLightboxSrc(null)}>
+                ×
+              </button>
+              <img
+                className={s.lightboxImg}
+                src={lightboxSrc}
+                alt=""
+                onClick={(e) => e.stopPropagation()}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </StudentLayout>
   )
 }

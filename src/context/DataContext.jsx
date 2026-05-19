@@ -1,10 +1,17 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
   buildInitialEvents,
+  buildInitialMentors,
   buildInitialNotices,
+  buildInitialParentMessages,
   buildInitialStudents,
+  defaultWeekTimetable,
+  SUPER_MENTOR_ID,
 } from '../data/seed'
+import { DEFAULT_PASSWORD, mentorLoginIdFromName } from '../lib/accounts.js'
 import { distributeCurriculum } from '../lib/curriculum.js'
+import { normalizeMentors } from '../lib/mentorWork.js'
+import { clearAuthSessionIfStudent } from '../lib/auth.js'
 import { broadcastNewNotice } from '../lib/notifications.js'
 import { normalizeStudents, todayIso } from '../lib/studentWork.js'
 
@@ -24,23 +31,29 @@ const DataContext = createContext(null)
 
 export function DataProvider({ children }) {
   const saved = typeof window !== 'undefined' ? loadState() : null
+  const [mentors, setMentors] = useState(() => normalizeMentors(saved?.mentors ?? buildInitialMentors()))
   const initialStudents = normalizeStudents(saved?.students ?? buildInitialStudents())
   const [students, setStudents] = useState(() => initialStudents)
   const [notices, setNotices] = useState(saved?.notices ?? buildInitialNotices())
   const [events, setEvents] = useState(saved?.events ?? buildInitialEvents())
   const [academy, setAcademy] = useState(() => saved?.academy ?? { curriculumItems: [] })
   const [aiChatsByStudent, setAiChatsByStudent] = useState(() => saved?.aiChatsByStudent ?? {})
+  const [parentMessages, setParentMessages] = useState(
+    () => saved?.parentMessages ?? buildInitialParentMessages(),
+  )
 
   useEffect(() => {
     const payload = {
+      mentors,
       students,
       notices,
       events,
       academy,
       aiChatsByStudent,
+      parentMessages,
     }
     localStorage.setItem(STORAGE_KEY, JSON.stringify(payload))
-  }, [students, notices, events, academy, aiChatsByStudent])
+  }, [mentors, students, notices, events, academy, aiChatsByStudent, parentMessages])
 
   const updateStudentMemo = useCallback((id, memo) => {
     setStudents((prev) => prev.map((s) => (s.id === id ? { ...s, memo } : s)))
@@ -74,15 +87,35 @@ export function DataProvider({ children }) {
     applyCurriculumWithItems(academy.curriculumItems)
   }, [academy.curriculumItems, applyCurriculumWithItems])
 
-  const addStudentPortfolioItem = useCallback((studentId, src) => {
+  const addStudentPortfolioItem = useCallback((studentId, payload) => {
+    const date = todayIso()
+    const entry =
+      typeof payload === 'string'
+        ? { id: `pf_${Date.now()}`, src: payload, date }
+        : {
+            id: `pf_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+            date: payload.date ?? date,
+            src: payload.src,
+            cloudinaryPublicId: payload.cloudinaryPublicId,
+          }
     setStudents((prev) =>
       prev.map((s) =>
-        s.id !== studentId
-          ? s
-          : {
-              ...s,
-              portfolio: [...s.portfolio, { id: `pf_${Date.now()}`, src }].slice(-20),
-            },
+        s.id !== studentId ? s : { ...s, portfolio: [...s.portfolio, entry].slice(-40) },
+      ),
+    )
+  }, [])
+
+  const addStudentPortfolioItems = useCallback((studentId, uploads) => {
+    const date = todayIso()
+    const entries = uploads.map((u, i) => ({
+      id: `pf_${Date.now()}_${i}`,
+      date,
+      src: u.url,
+      cloudinaryPublicId: u.publicId,
+    }))
+    setStudents((prev) =>
+      prev.map((s) =>
+        s.id !== studentId ? s : { ...s, portfolio: [...s.portfolio, ...entries].slice(-40) },
       ),
     )
   }, [])
@@ -95,11 +128,32 @@ export function DataProvider({ children }) {
     )
   }, [])
 
-  const addStudentDailyResult = useCallback((studentId, { src, note }) => {
+  const addStudentDailyResult = useCallback((studentId, { src, note, cloudinaryPublicId }) => {
     const date = todayIso()
-    const item = { id: `dr_${Date.now()}`, date, src, note: note?.trim() ?? '' }
+    const item = {
+      id: `dr_${Date.now()}`,
+      date,
+      src,
+      note: note?.trim() ?? '',
+      cloudinaryPublicId,
+    }
     setStudents((prev) =>
       prev.map((s) => (s.id !== studentId ? s : { ...s, dailyResults: [...s.dailyResults, item] })),
+    )
+  }, [])
+
+  const addStudentDailyResults = useCallback((studentId, uploads, note = '') => {
+    const date = todayIso()
+    const trimmedNote = note?.trim() ?? ''
+    const items = uploads.map((u, i) => ({
+      id: `dr_${Date.now()}_${i}`,
+      date,
+      src: u.url,
+      cloudinaryPublicId: u.publicId,
+      note: i === 0 ? trimmedNote : '',
+    }))
+    setStudents((prev) =>
+      prev.map((s) => (s.id !== studentId ? s : { ...s, dailyResults: [...s.dailyResults, ...items] })),
     )
   }, [])
 
@@ -163,13 +217,138 @@ export function DataProvider({ children }) {
     setEvents((prev) => prev.filter((e) => e.id !== id))
   }, [])
 
+  const addStudent = useCallback((payload) => {
+    const id = `s_${Date.now()}`
+    const timetable = JSON.parse(JSON.stringify(defaultWeekTimetable))
+    const student = normalizeStudents([
+      {
+        id,
+        name: payload.name.trim(),
+        mentorId: payload.mentorId || SUPER_MENTOR_ID,
+        password: payload.password || DEFAULT_PASSWORD,
+        parentPassword: DEFAULT_PASSWORD,
+        portfolioPublicToParent: true,
+        course: payload.course.trim() || '일반반',
+        timetable,
+        attendance: { present: 0, late: 0, absent: 0 },
+        memo: '',
+        feedback: '',
+        portfolio: [],
+        dailyResults: [],
+        practiceSecondsByDate: {},
+      },
+    ])[0]
+    setStudents((prev) => [...prev, student])
+    return id
+  }, [])
+
+  const addMentor = useCallback(
+    ({ name, password }) => {
+      const trimmed = name.trim()
+      if (!trimmed) return { ok: false, message: '멘토 이름을 입력해 주세요.' }
+      const loginId = mentorLoginIdFromName(trimmed)
+      if (mentors.some((m) => m.loginId === loginId)) {
+        return { ok: false, message: '이미 존재하는 멘토 아이디입니다.' }
+      }
+      const mentor = normalizeMentors([
+        {
+          id: `m_${Date.now()}`,
+          name: trimmed,
+          loginId,
+          password: password || DEFAULT_PASSWORD,
+          isSuperAdmin: false,
+        },
+      ])[0]
+      setMentors((prev) => [...prev, mentor])
+      return { ok: true, mentor }
+    },
+    [mentors],
+  )
+
+  const removeMentor = useCallback((mentorId) => {
+    setMentors((prev) => {
+      const target = prev.find((m) => m.id === mentorId)
+      if (!target || target.isSuperAdmin) return prev
+      return prev.filter((m) => m.id !== mentorId)
+    })
+    setStudents((prev) => prev.filter((s) => s.mentorId !== mentorId))
+  }, [])
+
+  const updateMentorPassword = useCallback((mentorId, newPassword) => {
+    setMentors((prev) =>
+      prev.map((m) => (m.id === mentorId ? { ...m, password: newPassword } : m)),
+    )
+  }, [])
+
+  const resetMentorPassword = useCallback((mentorId) => {
+    setMentors((prev) =>
+      prev.map((m) => (m.id === mentorId ? { ...m, password: DEFAULT_PASSWORD } : m)),
+    )
+  }, [])
+
+  const updateStudentPassword = useCallback((studentId, newPassword) => {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, password: newPassword } : s)),
+    )
+  }, [])
+
+  const resetStudentPassword = useCallback((studentId) => {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, password: DEFAULT_PASSWORD } : s)),
+    )
+  }, [])
+
+  const resetParentPassword = useCallback((studentId) => {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, parentPassword: DEFAULT_PASSWORD } : s)),
+    )
+  }, [])
+
+  const updateParentPassword = useCallback((studentId, newPassword) => {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, parentPassword: newPassword } : s)),
+    )
+  }, [])
+
+  const setPortfolioPublicToParent = useCallback((studentId, value) => {
+    setStudents((prev) =>
+      prev.map((s) => (s.id === studentId ? { ...s, portfolioPublicToParent: !!value } : s)),
+    )
+  }, [])
+
+  const removeStudent = useCallback((studentId) => {
+    setStudents((prev) => prev.filter((s) => s.id !== studentId))
+    setParentMessages((prev) => prev.filter((m) => m.studentId !== studentId))
+    setAiChatsByStudent((prev) => {
+      if (!prev[studentId]) return prev
+      const next = { ...prev }
+      delete next[studentId]
+      return next
+    })
+    clearAuthSessionIfStudent(studentId)
+  }, [])
+
+  const sendParentMessage = useCallback((studentId, { title, body }) => {
+    const msg = {
+      id: `pm_${Date.now()}`,
+      studentId,
+      title: title?.trim() || '멘토 안내',
+      body: body.trim(),
+      createdAt: Date.now(),
+    }
+    setParentMessages((prev) => [msg, ...prev])
+    return msg
+  }, [])
+
   const value = useMemo(
     () => ({
+      mentors,
       students,
       notices,
       events,
       academy,
       aiChatsByStudent,
+      parentMessages,
       updateStudentMemo,
       updateStudentFeedback,
       updateStudentCurriculumStart,
@@ -177,8 +356,10 @@ export function DataProvider({ children }) {
       applyCurriculumWithItems,
       applyCurriculumToAllStudents,
       addStudentPortfolioItem,
+      addStudentPortfolioItems,
       removeStudentPortfolioItem,
       addStudentDailyResult,
+      addStudentDailyResults,
       removeStudentDailyResult,
       addPracticeSeconds,
       appendAiMessage,
@@ -187,13 +368,27 @@ export function DataProvider({ children }) {
       addComment,
       addEvent,
       removeEvent,
+      addStudent,
+      removeStudent,
+      addMentor,
+      removeMentor,
+      updateMentorPassword,
+      resetMentorPassword,
+      updateStudentPassword,
+      resetStudentPassword,
+      resetParentPassword,
+      updateParentPassword,
+      setPortfolioPublicToParent,
+      sendParentMessage,
     }),
     [
+      mentors,
       students,
       notices,
       events,
       academy,
       aiChatsByStudent,
+      parentMessages,
       updateStudentMemo,
       updateStudentFeedback,
       updateStudentCurriculumStart,
@@ -201,8 +396,10 @@ export function DataProvider({ children }) {
       applyCurriculumWithItems,
       applyCurriculumToAllStudents,
       addStudentPortfolioItem,
+      addStudentPortfolioItems,
       removeStudentPortfolioItem,
       addStudentDailyResult,
+      addStudentDailyResults,
       removeStudentDailyResult,
       addPracticeSeconds,
       appendAiMessage,
@@ -211,6 +408,18 @@ export function DataProvider({ children }) {
       addComment,
       addEvent,
       removeEvent,
+      addStudent,
+      removeStudent,
+      addMentor,
+      removeMentor,
+      updateMentorPassword,
+      resetMentorPassword,
+      updateStudentPassword,
+      resetStudentPassword,
+      resetParentPassword,
+      updateParentPassword,
+      setPortfolioPublicToParent,
+      sendParentMessage,
     ],
   )
 

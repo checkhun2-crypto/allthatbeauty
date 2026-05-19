@@ -1,7 +1,7 @@
 import { MentorLayout } from '../../components/RoleLayout.jsx'
 import ui from '../../components/ui.module.css'
-import { useData } from '../../context/DataContext.jsx'
 import { attendanceRatePercent, growthLastMonth, rankBy, totalPracticeSeconds } from '../../lib/rankings.js'
+import { useMentorScope } from '../../hooks/useMentorScope.js'
 
 function fmtDur(sec) {
   const h = Math.floor(sec / 3600)
@@ -12,10 +12,10 @@ function fmtDur(sec) {
 }
 
 export default function MentorRanking() {
-  const { students } = useData()
-  const att = rankBy(students, attendanceRatePercent, true)
-  const gr = rankBy(students, growthLastMonth, true)
-  const pr = rankBy(students, totalPracticeSeconds, true)
+  const { myStudents } = useMentorScope()
+  const att = rankBy(myStudents, attendanceRatePercent, true)
+  const gr = rankBy(myStudents, growthLastMonth, true)
+  const pr = rankBy(myStudents, totalPracticeSeconds, true)
 
   return (
     <MentorLayout title="뱃지 · 랭킹">

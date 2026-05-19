@@ -1,11 +1,20 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { StudentLayout } from '../../components/RoleLayout.jsx'
 import ui from '../../components/ui.module.css'
+import { useAuth } from '../../context/AuthContext.jsx'
+import { useData } from '../../context/DataContext.jsx'
 import { useTheme } from '../../context/ThemeContext.jsx'
+import PasswordChangeForm from '../../components/PasswordChangeForm.jsx'
+import { validatePasswordChange } from '../../lib/accounts.js'
 import { getNotificationPermission, requestNotificationPermission } from '../../lib/notifications.js'
 
 export default function StudentSettings() {
+  const { logout, studentId } = useAuth()
+  const { students, setPortfolioPublicToParent, updateStudentPassword } = useData()
+  const nav = useNavigate()
   const { dark, setDark, accentId, setAccentId, palette } = useTheme()
+  const me = students.find((s) => s.id === studentId)
   const [perm, setPerm] = useState(() => getNotificationPermission())
   const [busy, setBusy] = useState(false)
 
@@ -19,6 +28,20 @@ export default function StudentSettings() {
   return (
     <StudentLayout title="설정">
       <section className={ui.card}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>비밀번호 변경</div>
+        <p className={ui.muted} style={{ marginTop: 0 }}>
+          아이디: <strong>{me?.loginId}</strong>
+        </p>
+        <PasswordChangeForm
+          onSubmit={(current, next, confirm) => {
+            const v = validatePasswordChange(current, next, confirm, me?.password ?? '')
+            if (!v.ok) return v
+            updateStudentPassword(studentId, next)
+            return { ok: true }
+          }}
+        />
+      </section>
+      <section className={ui.card}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>알림</div>
         <p className={ui.muted} style={{ marginTop: 0 }}>
           허용 시 수업 30분 전·새 공지를 브라우저 알림으로 받을 수 있습니다. (앱이 켜져 있을 때 가장 정확합니다.)
@@ -31,6 +54,23 @@ export default function StudentSettings() {
             </button>
           ) : null}
         </div>
+      </section>
+      <section className={ui.card}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>학부모 공개</div>
+        <p className={ui.muted} style={{ marginTop: 0 }}>
+          부모님도 출결, 피드백, 일정을 볼 수 있습니다. 포트폴리오만 아래에서 공개 여부를 선택할 수 있어요.
+        </p>
+        <label className={ui.row} style={{ justifyContent: 'space-between', marginTop: 10 }}>
+          <span className={ui.muted}>포트폴리오 학부모에게 공개</span>
+          <input
+            type="checkbox"
+            checked={me?.portfolioPublicToParent !== false}
+            disabled={!me}
+            onChange={(e) => {
+              if (me) setPortfolioPublicToParent(me.id, e.target.checked)
+            }}
+          />
+        </label>
       </section>
       <section className={ui.card}>
         <div style={{ fontWeight: 700, marginBottom: 8 }}>다크 모드</div>
@@ -65,6 +105,20 @@ export default function StudentSettings() {
         <p className={ui.muted} style={{ marginBottom: 0, marginTop: 10 }}>
           기본 컬러는 핑크(#E91E8C)입니다. 선택한 색은 앱 전체 포인트 컬러로 적용됩니다.
         </p>
+      </section>
+      <section className={ui.card}>
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>계정</div>
+        <button
+          type="button"
+          className={`${ui.btn} ${ui.btnDanger}`}
+          style={{ width: '100%' }}
+          onClick={() => {
+            logout()
+            nav('/')
+          }}
+        >
+          로그아웃
+        </button>
       </section>
     </StudentLayout>
   )

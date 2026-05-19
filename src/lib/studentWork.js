@@ -1,3 +1,10 @@
+import {
+  DEFAULT_PASSWORD,
+  parentLoginIdFromName,
+  studentLoginId,
+} from './accounts.js'
+import { SUPER_MENTOR_ID } from '../data/seed.js'
+
 function defaultMonthlyScores(seed) {
   const base = seed === 's1' ? 78 : seed === 's2' ? 70 : 74
   const months = ['2026-01', '2026-02', '2026-03', '2026-04', '2026-05']
@@ -12,8 +19,15 @@ function defaultMonthlyAttendance(seed) {
 
 export function normalizeStudent(s) {
   const portfolio = (s.portfolio ?? []).map((p, idx) => {
-    if (typeof p === 'string') return { id: `legacy_${s.id}_${idx}`, src: p }
-    return { id: p.id ?? `p_${s.id}_${idx}`, src: p.src }
+    if (typeof p === 'string') {
+      return { id: `legacy_${s.id}_${idx}`, src: p, date: s.curriculumStartDate?.slice(0, 10) || todayIso() }
+    }
+    return {
+      id: p.id ?? `p_${s.id}_${idx}`,
+      src: p.src,
+      date: p.date ?? todayIso(),
+      cloudinaryPublicId: p.cloudinaryPublicId,
+    }
   })
   const dailyResults = Array.isArray(s.dailyResults) ? s.dailyResults : []
   const timetable = Array.isArray(s.timetable) ? s.timetable : []
@@ -29,9 +43,31 @@ export function normalizeStudent(s) {
       : defaultMonthlyAttendance(s.id)
   const practiceSecondsByDate =
     s.practiceSecondsByDate && typeof s.practiceSecondsByDate === 'object' ? s.practiceSecondsByDate : {}
+  const attendance =
+    s.attendance && typeof s.attendance === 'object'
+      ? {
+          present: Number(s.attendance.present) || 0,
+          late: Number(s.attendance.late) || 0,
+          absent: Number(s.attendance.absent) || 0,
+        }
+      : { present: 0, late: 0, absent: 0 }
   const curriculumStartDate = s.curriculumStartDate || '2026-05-01'
+  const name = String(s.name ?? '').trim()
+  const loginId = name ? studentLoginId(name) : String(s.loginId ?? '').trim()
+  const parentLoginId = name ? parentLoginIdFromName(name) : String(s.parentLoginId ?? '').trim()
+  const password = s.password ?? DEFAULT_PASSWORD
+  const parentPassword = s.parentPassword ?? DEFAULT_PASSWORD
+  const portfolioPublicToParent = s.portfolioPublicToParent !== false
+  const mentorId = s.mentorId ?? SUPER_MENTOR_ID
   return {
     ...s,
+    name,
+    loginId,
+    password,
+    parentLoginId,
+    parentPassword,
+    portfolioPublicToParent,
+    mentorId,
     portfolio,
     dailyResults,
     timetable,
@@ -39,6 +75,7 @@ export function normalizeStudent(s) {
     monthlyScores,
     monthlyAttendance,
     practiceSecondsByDate,
+    attendance,
     curriculumStartDate,
   }
 }

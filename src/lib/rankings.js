@@ -1,6 +1,6 @@
 export function attendanceRatePercent(s) {
-  const a = s.attendance
-  const t = a.present + a.late + a.absent
+  const a = s?.attendance ?? { present: 0, late: 0, absent: 0 }
+  const t = (Number(a.present) || 0) + (Number(a.late) || 0) + (Number(a.absent) || 0)
   if (!t) return 0
   return Math.round((a.present / t) * 1000) / 10
 }

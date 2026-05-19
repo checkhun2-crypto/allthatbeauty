@@ -1,9 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { MentorLayout } from '../../components/RoleLayout.jsx'
+import DeleteStudentButton from '../../components/DeleteStudentButton.jsx'
 import GrowthCharts from '../../components/GrowthCharts.jsx'
 import ui from '../../components/ui.module.css'
 import { useData } from '../../context/DataContext.jsx'
+import { DEFAULT_PASSWORD } from '../../lib/accounts.js'
+import { canDeleteStudent } from '../../lib/studentDelete.js'
+import { useMentorScope } from '../../hooks/useMentorScope.js'
 import { formatIsoDate } from '../../lib/nav.js'
 
 function groupDailyByDate(items) {
@@ -19,8 +23,22 @@ function groupDailyByDate(items) {
 
 export default function MentorStudentDetail() {
   const { id } = useParams()
-  const { students, updateStudentMemo, updateStudentFeedback } = useData()
-  const student = useMemo(() => students.find((s) => s.id === id), [students, id])
+  const nav = useNavigate()
+  const {
+    students,
+    updateStudentMemo,
+    updateStudentFeedback,
+    sendParentMessage,
+    resetStudentPassword,
+    resetParentPassword,
+    removeStudent,
+  } = useData()
+  const { myStudents, isSuperAdmin, mentorId } = useMentorScope()
+  const student = useMemo(() => {
+    if (isSuperAdmin) return students.find((s) => s.id === id)
+    return myStudents.find((s) => s.id === id)
+  }, [students, myStudents, id, isSuperAdmin])
+  const showDelete = student && canDeleteStudent(student, { mentorId, isSuperAdmin })
   const [memo, setMemo] = useState(student?.memo ?? '')
   const [feedback, setFeedback] = useState(student?.feedback ?? '')
 
@@ -73,7 +91,7 @@ export default function MentorStudentDetail() {
         <div className={ui.badge} style={{ marginBottom: 8 }}>
           성장 그래프
         </div>
-        <GrowthCharts monthlyScores={student.monthlyScores} monthlyAttendance={student.monthlyAttendance} />
+        <GrowthCharts student={student} />
       </section>
 
       <section className={ui.card}>
@@ -88,8 +106,25 @@ export default function MentorStudentDetail() {
 
       <section className={ui.card}>
         <div className={ui.badge} style={{ marginBottom: 8 }}>
+          계정 정보
+        </div>
+        <AccountInfo student={student} onResetStudent={() => resetStudentPassword(student.id)} onResetParent={() => resetParentPassword(student.id)} />
+      </section>
+
+      <section className={ui.card}>
+        <div className={ui.badge} style={{ marginBottom: 8 }}>
+          학부모에게 메시지
+        </div>
+        <ParentMessageForm studentId={student.id} studentName={student.name} onSend={sendParentMessage} />
+      </section>
+
+      <section className={ui.card}>
+        <div className={ui.badge} style={{ marginBottom: 8 }}>
           멘토 메모
         </div>
+        <p className={ui.muted} style={{ marginTop: 0 }}>
+          수강생·학부모에게 보이지 않는 내부 메모입니다.
+        </p>
         <textarea className={ui.textarea} value={memo} onChange={(e) => setMemo(e.target.value)} />
         <button type="button" className={ui.btn} style={{ marginTop: 8, width: '100%' }} onClick={() => updateStudentMemo(student.id, memo)}>
           메모 저장
@@ -154,6 +189,28 @@ export default function MentorStudentDetail() {
           ))
         )}
       </section>
+
+      {showDelete ? (
+        <section className={ui.card}>
+          <div
+            className={ui.badge}
+            style={{ marginBottom: 8, background: 'rgba(198,40,40,0.12)', color: '#c62828' }}
+          >
+            수강생 삭제
+          </div>
+          <p className={ui.muted} style={{ marginTop: 0 }}>
+            삭제 시 학부모 계정과 모든 학습 데이터가 영구 삭제됩니다.
+          </p>
+          <DeleteStudentButton
+            student={student}
+            style={{ width: '100%', marginTop: 10 }}
+            onDelete={() => {
+              removeStudent(student.id)
+              nav('/mentor/students', { replace: true })
+            }}
+          />
+        </section>
+      ) : null}
     </MentorLayout>
   )
 }
@@ -168,6 +225,89 @@ function Stat({ label, value, tone }) {
       </div>
       <div style={{ fontSize: '1.4rem', fontWeight: 800, color }}>{value}</div>
     </div>
+  )
+}
+
+function AccountInfo({ student, onResetStudent, onResetParent }) {
+  const [msg, setMsg] = useState('')
+  return (
+    <>
+      <p className={ui.muted} style={{ marginTop: 0 }}>
+        수강생 아이디: <strong>{student.loginId}</strong>
+        <br />
+        학부모 아이디: <strong>{student.parentLoginId}</strong>
+      </p>
+      <div className={ui.row} style={{ gap: 8, marginTop: 10 }}>
+        <button
+          type="button"
+          className={`${ui.btn} ${ui.btnSm} ${ui.btnGhost}`}
+          style={{ flex: 1 }}
+          onClick={() => {
+            if (window.confirm(`수강생 비밀번호를 ${DEFAULT_PASSWORD}(으)로 초기화할까요?`)) {
+              onResetStudent()
+              setMsg('수강생 비밀번호가 초기화되었습니다.')
+            }
+          }}
+        >
+          수강생 비번 초기화
+        </button>
+        <button
+          type="button"
+          className={`${ui.btn} ${ui.btnSm} ${ui.btnGhost}`}
+          style={{ flex: 1 }}
+          onClick={() => {
+            if (window.confirm(`학부모 비밀번호를 ${DEFAULT_PASSWORD}(으)로 초기화할까요?`)) {
+              onResetParent()
+              setMsg('학부모 비밀번호가 초기화되었습니다.')
+            }
+          }}
+        >
+          학부모 비번 초기화
+        </button>
+      </div>
+      {msg ? <p style={{ color: '#2e7d32', fontSize: '0.82rem', marginTop: 8 }}>{msg}</p> : null}
+    </>
+  )
+}
+
+function ParentMessageForm({ studentId, studentName, onSend }) {
+  const [title, setTitle] = useState('')
+  const [body, setBody] = useState('')
+  const [sent, setSent] = useState('')
+  return (
+    <>
+      <p className={ui.muted} style={{ marginTop: 0 }}>
+        {studentName} 학부모에게 시험 일정, 준비물 등을 전달합니다.
+      </p>
+      <input
+        className={ui.input}
+        placeholder="제목 (예: 실기 시험 준비물)"
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+      />
+      <textarea
+        className={ui.textarea}
+        style={{ marginTop: 8 }}
+        placeholder="메시지 내용"
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+      />
+      {sent ? <p style={{ color: '#2e7d32', fontSize: '0.82rem' }}>{sent}</p> : null}
+      <button
+        type="button"
+        className={ui.btn}
+        style={{ marginTop: 8, width: '100%' }}
+        onClick={() => {
+          if (!body.trim()) return
+          onSend(studentId, { title, body })
+          setTitle('')
+          setBody('')
+          setSent('학부모에게 메시지를 보냈습니다.')
+        }}
+      >
+        메시지 보내기
+      </button>
+    </>
   )
 }
 

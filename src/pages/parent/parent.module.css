@@ -1,0 +1,316 @@
+.viewportOverride {
+  background: linear-gradient(180deg, #cbd5e1 0%, #eef2f7 24%, #eef2f7 100%) !important;
+}
+
+.mainOverride {
+  padding: 12px 14px 92px !important;
+  background: transparent !important;
+}
+
+.theme {
+  --accent: #3d5a80;
+  --parent-accent: #3d5a80;
+  --parent-accent-soft: #5c7a9e;
+  --parent-surface: #eef2f7;
+  --parent-card: #ffffff;
+  --parent-text: #1e293b;
+  --parent-muted: #64748b;
+  --parent-border: #e2e8f0;
+  --parent-shadow: rgba(30, 41, 59, 0.06);
+  --parent-gap: 12px;
+  --parent-radius: 16px;
+  --parent-font-sm: 0.8125rem;
+  --parent-font-md: 0.875rem;
+  --parent-font-lg: 1rem;
+  min-height: 100%;
+  background: var(--parent-surface);
+  color: var(--parent-text);
+  font-size: var(--parent-font-md);
+  line-height: 1.5;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--parent-gap);
+}
+
+.hero {
+  padding: 22px 18px 20px;
+  border-radius: var(--parent-radius);
+  background: linear-gradient(145deg, #334155 0%, #3d5a80 48%, #4a6fa5 100%);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(51, 65, 85, 0.22);
+}
+
+.heroName {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+}
+
+.heroMeta {
+  margin: 8px 0 0;
+  font-size: var(--parent-font-sm);
+  opacity: 0.92;
+  font-weight: 500;
+}
+
+.card {
+  background: var(--parent-card);
+  border: 1px solid var(--parent-border);
+  border-radius: var(--parent-radius);
+  padding: 16px;
+  box-shadow: 0 2px 12px var(--parent-shadow);
+}
+
+.cardTitle {
+  margin: 0 0 12px;
+  font-size: var(--parent-font-sm);
+  font-weight: 700;
+  color: var(--parent-accent);
+  letter-spacing: 0.02em;
+}
+
+.muted {
+  margin: 0;
+  color: var(--parent-muted);
+  font-size: var(--parent-font-sm);
+  line-height: 1.55;
+}
+
+.bodyText {
+  margin: 0;
+  font-size: var(--parent-font-md);
+  line-height: 1.55;
+  color: var(--parent-text);
+}
+
+.linkCard {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.linkCard:active {
+  border-color: color-mix(in srgb, var(--parent-accent) 35%, var(--parent-border));
+  box-shadow: 0 4px 16px rgba(61, 90, 128, 0.12);
+}
+
+.cardFooter {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: var(--parent-accent-soft);
+  font-weight: 600;
+}
+
+.emptyState {
+  padding: 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  text-align: center;
+  font-size: var(--parent-font-sm);
+  color: var(--parent-muted);
+}
+
+/* 출결 링 */
+.ringRow {
+  display: flex;
+  justify-content: space-around;
+  gap: 12px;
+}
+
+.ringItem {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+
+.ringWrap {
+  position: relative;
+  width: 108px;
+  height: 108px;
+}
+
+.ringSvg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.ringTrack {
+  fill: none;
+  stroke: #e8eef4;
+  stroke-width: 8;
+}
+
+.ringProgress {
+  fill: none;
+  stroke: var(--parent-accent);
+  stroke-width: 8;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.4s ease;
+}
+
+.ringCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+}
+
+.ringPercent {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--parent-text);
+  letter-spacing: -0.02em;
+}
+
+.ringUnit {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--parent-muted);
+  margin-top: 4px;
+}
+
+.ringLabel {
+  margin-top: 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--parent-text);
+  text-align: center;
+}
+
+.ringSub {
+  margin-top: 2px;
+  font-size: 0.7rem;
+  color: var(--parent-muted);
+  text-align: center;
+}
+
+/* 포트폴리오 */
+.portfolioScroll {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin: 0 -4px;
+  scroll-snap-type: x mandatory;
+}
+
+.portfolioThumb {
+  flex: 0 0 42%;
+  max-width: 140px;
+  scroll-snap-align: start;
+  border-radius: 12px;
+  overflow: hidden;
+  aspect-ratio: 1;
+  background: #f1f5f9;
+}
+
+.portfolioThumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.hiddenNote {
+  padding: 14px;
+  border-radius: 12px;
+  background: #f8fafc;
+  font-size: var(--parent-font-sm);
+  color: var(--parent-muted);
+  text-align: center;
+}
+
+/* 일정 */
+.eventList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.eventItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.eventTitle {
+  font-size: var(--parent-font-md);
+  font-weight: 700;
+  margin: 0 0 4px;
+}
+
+.eventType {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--parent-accent) 12%, transparent);
+  color: var(--parent-accent);
+}
+
+.messagePreview {
+  margin: 0;
+  font-size: var(--parent-font-sm);
+  line-height: 1.5;
+  color: var(--parent-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.noticeTitle {
+  margin: 0 0 6px;
+  font-size: var(--parent-font-lg);
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.btnLogout {
+  width: 100%;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  padding: 14px;
+  background: #fff;
+  color: #b91c1c;
+  font-weight: 700;
+  font-size: var(--parent-font-md);
+  cursor: pointer;
+}
+
+.btnLogout:active {
+  background: #fef2f2;
+}
+
+.messageBody {
+  margin-top: 10px;
+  white-space: pre-wrap;
+}
+
+.attachments {
+  margin-top: 14px;
+  display: grid;
+  gap: 10px;
+}
+
+.attachmentImg {
+  width: 100%;
+  border-radius: 12px;
+  display: block;
+}

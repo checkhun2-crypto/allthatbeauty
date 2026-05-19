@@ -4,6 +4,7 @@ export const mentorNavItems = [
   { to: '/mentor/notices', label: '공지', icon: '📣' },
   { to: '/mentor/schedule', label: '일정', icon: '📅' },
   { to: '/mentor/ranking', label: '랭킹', icon: '🏆' },
+  { to: '/mentor/settings', label: '설정', icon: '⚙️' },
 ]
 
 export const studentNavItems = [
@@ -12,6 +13,13 @@ export const studentNavItems = [
   { to: '/student/practice', label: '연습', icon: '⏱️' },
   { to: '/student/schedule', label: '내 일정', icon: '📅' },
   { to: '/student/settings', label: '설정', icon: '⚙️' },
+]
+
+export const parentNavItems = [
+  { to: '/parent/home', label: '홈', icon: '🏠', iconName: 'home', end: true },
+  { to: '/parent/notices', label: '공지', icon: '📣', iconName: 'notice' },
+  { to: '/parent/messages', label: '메시지', icon: '✉️', iconName: 'message' },
+  { to: '/parent/settings', label: '설정', icon: '⚙️', iconName: 'settings' },
 ]
 
 export function formatTs(ts) {

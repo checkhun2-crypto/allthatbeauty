@@ -1,4 +1,5 @@
 export const MENTOR_NAME = '박성훈'
+export const SUPER_MENTOR_ID = 'm_super'
 
 export const THEME_PALETTE = [
   { id: 'pink', label: '핑크', hex: '#E91E8C' },
@@ -11,7 +12,7 @@ export const THEME_PALETTE = [
   { id: 'gold', label: '골드', hex: '#FFB300' },
 ]
 
-const weekSlots = [
+export const defaultWeekTimetable = [
   { day: '월', slots: [{ time: '10:00', subject: '스킨케어 기초' }, { time: '14:00', subject: '메이크업 실기' }] },
   { day: '화', slots: [{ time: '10:00', subject: '헤어 스타일링' }, { time: '15:00', subject: '포트폴리오' }] },
   { day: '수', slots: [{ time: '11:00', subject: '네일아트' }] },
@@ -19,13 +20,31 @@ const weekSlots = [
   { day: '금', slots: [{ time: '10:00', subject: '종합 리뷰' }] },
 ]
 
+export function buildInitialMentors() {
+  return [
+    {
+      id: SUPER_MENTOR_ID,
+      name: '박성훈',
+      loginId: '박성훈멘토',
+      password: '1234',
+      isSuperAdmin: true,
+    },
+  ]
+}
+
 export function buildInitialStudents() {
   return [
     {
       id: 's1',
       name: '김민지',
+      mentorId: SUPER_MENTOR_ID,
+      loginId: '김민지',
+      password: '1234',
+      parentLoginId: '김민지부모',
+      parentPassword: '1234',
+      portfolioPublicToParent: true,
       course: '뷰티 마스터반',
-      timetable: weekSlots,
+      timetable: defaultWeekTimetable,
       attendance: { present: 42, late: 2, absent: 1 },
       memo: '색조 메이크업 감각이 좋습니다. 속눈썹 연장 실기만 조금 더 연습하면 됩니다.',
       portfolio: ['https://picsum.photos/seed/s1a/400/400', 'https://picsum.photos/seed/s1b/400/400'],
@@ -36,8 +55,14 @@ export function buildInitialStudents() {
     {
       id: 's2',
       name: '이서연',
+      mentorId: SUPER_MENTOR_ID,
+      loginId: '이서연',
+      password: '1234',
+      parentLoginId: '이서연부모',
+      parentPassword: '1234',
+      portfolioPublicToParent: true,
       course: '네일 전문반',
-      timetable: weekSlots.map((d) => ({
+      timetable: defaultWeekTimetable.map((d) => ({
         ...d,
         slots: d.slots.map((s) => ({ ...s, subject: s.subject.replace('메이크업', '네일') })),
       })),
@@ -51,8 +76,14 @@ export function buildInitialStudents() {
     {
       id: 's3',
       name: '박하은',
+      mentorId: SUPER_MENTOR_ID,
+      loginId: '박하은',
+      password: '1234',
+      parentLoginId: '박하은부모',
+      parentPassword: '1234',
+      portfolioPublicToParent: false,
       course: '헤어 디자인반',
-      timetable: weekSlots,
+      timetable: defaultWeekTimetable,
       attendance: { present: 40, late: 3, absent: 2 },
       memo: '펌 기법 이해도 높음. 상담 멘트 연습 필요.',
       portfolio: [],
@@ -71,6 +102,7 @@ export function buildInitialNotices() {
       title: '5월 실기 시험 일정 안내',
       body: '전 과정 수강생은 지정 시간에 도착해 주세요. 준비물은 개별 문자 참고.',
       author: MENTOR_NAME,
+      important: true,
       createdAt: now - 86400000 * 2,
       attachments: [],
       comments: [
@@ -86,6 +118,19 @@ export function buildInitialNotices() {
       createdAt: now - 86400000 * 5,
       attachments: [],
       comments: [],
+    },
+  ]
+}
+
+export function buildInitialParentMessages() {
+  const now = Date.now()
+  return [
+    {
+      id: 'pm1',
+      studentId: 's1',
+      title: '5월 실기 시험 준비물',
+      body: '브러시 세트, 스킨케어 키트를 지참해 주세요. 시험 30분 전 도착 부탁드립니다.',
+      createdAt: now - 86400000,
     },
   ]
 }

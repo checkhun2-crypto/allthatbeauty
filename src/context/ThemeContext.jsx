@@ -34,7 +34,8 @@ export function ThemeProvider({ children }) {
     const root = document.documentElement
     root.style.setProperty('--accent', accent.hex)
     root.dataset.theme = dark ? 'dark' : 'light'
-  }, [accent.hex, dark])
+    root.dataset.accent = accentId
+  }, [accent.hex, accentId, dark])
 
   const value = useMemo(
     () => ({

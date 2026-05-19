@@ -5,7 +5,7 @@
   --text: #1a1a1a;
   --muted: #6b6b6b;
   --border: #f0e6ec;
-  --shadow: rgba(233, 30, 140, 0.12);
+  --shadow: color-mix(in srgb, var(--accent) 14%, transparent);
   font-family: 'Pretendard', 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif;
   line-height: 1.45;
   font-weight: 400;
@@ -22,7 +22,7 @@
   --text: #f4f1f3;
   --muted: #a89da8;
   --border: #2e2a32;
-  --shadow: rgba(0, 0, 0, 0.35);
+  --shadow: color-mix(in srgb, var(--accent) 8%, transparent);
 }
 
 * {

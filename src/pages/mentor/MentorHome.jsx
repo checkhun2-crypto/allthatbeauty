@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom'
 import { MentorLayout } from '../../components/RoleLayout.jsx'
 import ui from '../../components/ui.module.css'
-import { useData } from '../../context/DataContext.jsx'
-import { getTodaySlots, MENTOR_NAME, todayLabel } from '../../data/seed.js'
+import { getTodaySlots, todayLabel } from '../../data/seed.js'
+import { useMentorScope } from '../../hooks/useMentorScope.js'
 import { attendanceRatePercent, growthLastMonth, rankBy, totalPracticeSeconds } from '../../lib/rankings.js'
 
 function fmtDur(sec) {
@@ -14,8 +14,8 @@ function fmtDur(sec) {
 }
 
 export default function MentorHome() {
-  const { students } = useData()
-  const total = students.reduce(
+  const { currentMentor, myStudents } = useMentorScope()
+  const total = myStudents.reduce(
     (acc, s) => {
       const { present, late, absent } = s.attendance
       acc.present += present
@@ -28,12 +28,12 @@ export default function MentorHome() {
   const denom = total.present + total.late + total.absent
   const rate = denom ? Math.round((total.present / denom) * 1000) / 10 : 0
 
-  const att = rankBy(students, attendanceRatePercent, true)
-  const gr = rankBy(students, growthLastMonth, true)
-  const pr = rankBy(students, totalPracticeSeconds, true)
+  const att = rankBy(myStudents, attendanceRatePercent, true)
+  const gr = rankBy(myStudents, growthLastMonth, true)
+  const pr = rankBy(myStudents, totalPracticeSeconds, true)
 
   return (
-    <MentorLayout title={`안녕하세요, ${MENTOR_NAME} 멘토`}>
+    <MentorLayout title={`안녕하세요, ${currentMentor?.name ?? '멘토'} 멘토`}>
       <p className={ui.muted} style={{ marginTop: 0 }}>
         {todayLabel()}
       </p>
@@ -41,7 +41,7 @@ export default function MentorHome() {
         <div className={ui.row} style={{ justifyContent: 'space-between', marginBottom: 8 }}>
           <span className={ui.badge}>오늘 타임테이블</span>
         </div>
-        {students.map((s) => {
+        {myStudents.map((s) => {
           const slots = getTodaySlots(s.timetable)
           return (
             <div key={s.id} style={{ marginBottom: 10 }}>
